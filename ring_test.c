@@ -2,8 +2,10 @@
 #include <string.h> //string library
 #include <mpi.h>
 
+const int MAX_STRING = 100;
 int main(void) 
 {
+    char output[MAX_STRING];
     int recieved;
     int m; //declare "m" variable
     int comm_sz; //Number of processes
@@ -19,47 +21,41 @@ int main(void)
     {
       int destination;
       int source;
-
-      for(int i = 0; i < comm_sz; i++)
+      if(my_rank != 0)
       {
-        if(i == 0)
-        {
-          if(my_rank == comm_sz - 1)
-          {
-            source = 0;
-            MPI_Recv(&recieved, 1, MPI_INT, source, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-          }
-          else if(my_rank == 0)
-          {
-            destination = comm_sz -1;
-            MPI_Send(&recieved, 1, MPI_INT, destination, 0, MPI_COMM_WORLD);
-          }
-        }
-        else
-        {
-          if(my_rank == i - 1)
-          {
-            source = i;
-            MPI_Recv(&recieved, 1, MPI_INT, source, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-          }
-          else
-          {
-            destination = i - 1;
-            MPI_Send(&recieved, 1, MPI_INT, destination, 0, MPI_COMM_WORLD);
-          }
-        }
-      }  
-    }
-    m = recieved;
+        destination = my_rank - 1;
+      }
+      else if(my_rank == 0)
+      {
+        destination= comm_sz - 1;
+      }
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    for(int i = 0; i < comm_sz; i++)
+      MPI_Send(&m, 1, MPI_INT, destination, 0, MPI_COMM_WORLD);
+      if(my_rank == 0)
+      {
+        MPI_Recv(&recieved, 1, MPI_INT, comm_sz - 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      }
+      else if(my_rank != 0)
+      {
+        MPI_Recv(&recieved, 1, MPI_INT, my_rank + 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      }
+      m = recieved;
+    }
+    
+
+    if(my_rank != 0)
     {
-        if(my_rank == i)
-        {
-            printf("Process %d holds the m-value %d\n", my_rank, m);
-        }
-        MPI_Barrier(MPI_COMM_WORLD); // wait for all processes to synchronize before proceeding
+      sprintf(output,"Process %d holds value %d", my_rank, m);
+      MPI_Send(output, strlen(output)+1, MPI_CHAR, 0, 0, MPI_COMM_WORLD);
+    }
+    else
+    {
+      printf("Process %d holds value %d", my_rank, m);
+      for(int q = 1; q < comm_sz; q++) 
+      {
+        MPI_Recv(output, MAX_STRING, MPI_CHAR, q, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        printf("%s\n", output);
+      }
     }
        
     MPI_Finalize();
