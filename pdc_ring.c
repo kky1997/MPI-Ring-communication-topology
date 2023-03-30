@@ -35,18 +35,18 @@ int main(void)
         if(my_rank !=0)
         {
             MPI_Recv(&recieved, 1, MPI_INT, source, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            printf("Process %d recieved number %d from process %d\n", my_rank, recieved, source);
         }
-        
-        MPI_Send(&m, 1, MPI_INT, destination, 0, MPI_COMM_WORLD);
 
+        printf("Process %d sending number %d to process %d\n", my_rank, m, destination);
+        MPI_Send(&m, 1, MPI_INT, destination, 0, MPI_COMM_WORLD);
         if(my_rank == 0)
         {
             MPI_Recv(&recieved, 1, MPI_INT, source, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            printf("Process %d recieved number %d from process %d\n", my_rank, recieved, source);
         }
         m = recieved;
-    
     }
-    
     
     if(my_rank != 0)
     {
@@ -62,7 +62,6 @@ int main(void)
         printf("%s\n", output);
       }
     }
-    
     MPI_Finalize();
     return 0;
 }
