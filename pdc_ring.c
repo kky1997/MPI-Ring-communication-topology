@@ -66,7 +66,6 @@ int main(void)
         {
             source = (my_rank + 1) % comm_sz;
             destination = my_rank - 1;
-            
         }
 
         
