@@ -44,7 +44,7 @@ int main(void)
         int destination; //declare a variable to hold the destination passed into MPI_Send() functions
 
         /*
-        the below if and else statements are to determine what the source and destination should be for the particular process this is done based on the rank of the process:
+        the below if and else statements are to determine what the source and destination should be for the particular process. This is done based on the rank of the process:
             if rank == 0:
                 If the process has a rank == 0, then it's left neighbour is the process which has the highest rank number (lowest rank processes)
                 hence we can get process 0's destination by getting the total number of processes - 1.
@@ -53,7 +53,8 @@ int main(void)
                 process 0's rank + 1.
 
             else:
-                all other processes with ranks > 0 have left neighbours which are just -1 of their rank. Eg. process 1's left neighbour is 0 (1 - 1 = 0).
+                all other processes with ranks > 0 have left neighbours (destination) which are just -1 of their rank. 
+                Eg. process 1's left neighbour is 0 (1 - 1 = 0).
                 Their source (right neighbour) can be determined by their rank + 1 % total number of processes. 
                 Eg. process 1's right neighbour and source, when executing this program with 4 processes, would be (1 + 1) % 4 which is 2.
         */
@@ -77,7 +78,7 @@ int main(void)
             printf("Process %d recieved number %d from process %d\n", my_rank, recieved, source);
         }
 
-        //the first process (rank 0), will make he first send() as all other rank's would be blocking after Recv() call
+        //the first process (rank 0), will make the first send() as all other rank's would be blocking after Recv() call
         //this ensures that one send() is made allowing the program to continue.
         printf("Process %d sending number %d to process %d\n", my_rank, m, destination);
         MPI_Send(&m, 1, MPI_INT, destination, 0, MPI_COMM_WORLD);
