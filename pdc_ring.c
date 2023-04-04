@@ -1,6 +1,6 @@
 #include <stdio.h> //standard io library
 #include <string.h> //string library
-#include <mpi.h>
+#include <mpi.h> //import mpi library
 #include <stdlib.h> //import standard library to access srand() and rand() functions
 #include <time.h> //import time library so we can use time() function when seeding rand()
 
@@ -10,9 +10,9 @@ const int MAX_STRING = 100;
 int main(void) 
 {
     char output[MAX_STRING]; //declare a character array with length of 100
-    int random_num; //this int variable will hold the random number generated later by the ran() function
+    int random_num; //this int variable will hold the random number generated later by the rand() function
     int recieved; //this int variable acts as a buffer and holds the value retrieved at each MPI_Recv() function
-    int m = 10; //declare "m" variable, initilize with value of 10 as we want random number from 10 - 20, so rand%11 + 10 will give between 10 - 20
+    int m = 10; //declare "m" variable, initilize with value of 10 as we want random number from 10 - 20, so rand%11 + 10 (which m is initilized to) will give between 10 - 20
     int comm_sz; //Number of processes, later initilized by MPI_Comm_Size() function
     int my_rank; //My process rank', later initilized by MPI_Comm_rank() function
 
@@ -31,7 +31,6 @@ int main(void)
     //this means that the randomly generated number (0 - 10) will always be at least 10 (0 + 10) or at most 20 (10 + 10).
     srand(time(0) + my_rank); 
     random_num = rand() % 11;
-    //m = my_rank;
 
     //set the m-value for each process to their randomly generated number
     m += random_num;
@@ -40,8 +39,8 @@ int main(void)
     //allows the shifting of m-values to the left 3 times (the number of iterations of the loop).
     for(int q = 0; q < 3; q++) //loop 3 times in order to shift numbers 3 times
     {
-        int source; //declare a variable to hold the source which will be passed into MPI_Recv() functions
-        int destination; //declare a variable to hold the destination passed into MPI_Send() functions
+        int source; //declare a variable to hold the source which will be passed into MPI_Recv() functions (left neighbour)
+        int destination; //declare a variable to hold the destination passed into MPI_Send() functions (right neighbour)
 
         /*
         the below if and else statements are to determine what the source and destination should be for the particular process. This is done based on the rank of the process:
@@ -72,10 +71,12 @@ int main(void)
         
         //here we split the calling for MPI_Recv() based on whether a process' rank is 0 or not, this is so that all processes do not call Recv() 
         //at the start and all block before an send() calls, which would deadlock the program. First we allow all processes of rank > 0 to make a Recv() call.
+        //because messages are passed to the left only, MPI_Send() are always passed in the destination of the left neighbour, while MPI_Recv() are passed in the source
+        //of the right neighbour. This allows messages to only be passed in a one-way fashion, sent to the left and recieved from the right.
         if(my_rank !=0)
         {
             MPI_Recv(&recieved, 1, MPI_INT, source, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            printf("Process %d recieved number %d from process %d\n", my_rank, recieved, source);
+            printf("Process %d received number %d from process %d\n", my_rank, recieved, source);
         }
 
         //the first process (rank 0), will make the first send() as all other rank's would be blocking after Recv() call
@@ -88,33 +89,37 @@ int main(void)
         if(my_rank == 0)
         {
             MPI_Recv(&recieved, 1, MPI_INT, source, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            printf("Process %d recieved number %d from process %d\n", my_rank, recieved, source);
+            printf("Process %d received number %d from process %d\n", my_rank, recieved, source);
         }
 
         //update each process' m-value with the value they have recieved from their MPI_Recv() call.
         m = recieved;
     }
     
+    //Now outside the for-loop which facilitated the shifting left of m-values 3 times, the ordered printing of final m-values takes place.
     //The below if and else statements are the main logic for printing the final m-values of each process deterministically in order of their rank.
-    //this is done by all processes with rank > 0 creating a string and outputting it to the string buffer "output".
+    //this is done by all processes with rank > 0 (my_rank !=0) creating a string and outputting it to the string buffer "output".
     //they then send this output array to process 0, which is responsible for printing it's own m-value as well as the string sent by all other processes rank > 0.
     if(my_rank != 0)
     {
-      sprintf(output,"Process %d holds value %d", my_rank, m);
-      MPI_Send(output, strlen(output)+1, MPI_CHAR, 0, 0, MPI_COMM_WORLD);
+        sprintf(output,"Process %d holds value %d", my_rank, m);
+        MPI_Send(output, strlen(output)+1, MPI_CHAR, 0, 0, MPI_COMM_WORLD);
     }
     else
     {
-      printf("Process %d holds value %d\n", my_rank, m);
 
-      //this for loop ensures that the output to console will always be in order of rank as "q" is used to determine the source of the Recv().
-      //since "q" starts at 1 and is incremented by 1 only after every iteration, this means that process 0 will always recieve in the order;
-      //1, 2, 3 etc.
-      for(int q = 1; q < comm_sz; q++) 
-      {
-        MPI_Recv(output, MAX_STRING, MPI_CHAR, q, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        printf("%s\n", output);
-      }
+        //this printf exists within the else statement, meaning only process rank 0 executes this print. Since process 0 responsible for printing all messages to terminal,
+        //it must also print it's own message. Since, process rank 0 is the first numerically, it prints its own message before receiving and printing messages from all other processes.
+        printf("Process %d holds value %d\n", my_rank, m);
+
+        //this for loop ensures that the output to console will always be in order of rank as "q" is used to determine the source of the Recv().
+        //since "q" starts at 1 and is incremented by 1 only after every iteration, this means that process 0 will always recieve in the order;
+        //1, 2, 3 etc.
+        for(int q = 1; q < comm_sz; q++) 
+        {
+            MPI_Recv(output, MAX_STRING, MPI_CHAR, q, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            printf("%s\n", output);
+        }
     }
 
     //This final MPI function performs a variety of cleanup tasks, including freeing memory and closing any network connections opened by MPI during execution. 
